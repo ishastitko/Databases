@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="./sproject_html.xsl"?>
+<!DOCTYPE sproject SYSTEM "sproject.dtd">
+<sproject>
+    <course database="Oracle" version="11">
+        <cname>Databázové systémy</cname>
+            <code>BI-DBS.21</code>
+            <semester>DBS-2024</semester>
+            <seminar>Pondělí 12:45, Oba týdny, paralelka 202430</seminar>
+    </course>
+        <author>
+            <aname>Ilya Shastitko</aname>
+            <uname>xshai009</uname>
+            <email>ilya.shastitko@gmail.com</email>
+        </author>
+    <content>
+        <declaration>I declare that I have developed my semestral work independently. All the sources I used are listed in the section References.</declaration>
+            <title>Fitness centrum &quot;Body Gym&quot;</title>
+        <description>
+            <title>Popis</title>
+                    <para>Fitness centrum &quot;**Body Gym**&quot; se specializuje na poskytování různých druhů lekcí, osobních tréninků a wellness služeb. Centrum nabízí svým členům velký výběr lekcí a tréninků s možností rezervací.</para>
+                    <para></para>
+                    <para>Každý **člen** fitness centra má typ členství (např. měsíční, roční). Může se také evidovat preference člena pro konkrétní druh lekcí (např. jóga, silový trénink), což umožní nabídnout personalizované doporučení.  Člen je následovan od osoby, může mít několik rezervací, osobních tréninků a plateb.</para>
+                    <para></para>
+                    <para>**Trenér** má své vlastní ID, může se evidovat specializace (např. kardio, posilování). Trenéři mají pracovní rozvrh ve formatu dne (např. 20.10.2024), který je v systému evidován kvůli optimalizaci plánování lekcí. Je následovan od osoby, může mít několik skupinových lekcí, osobních treninků.</para>
+                    <para></para>
+                    <para>**Zaměstnanec**, buď recepční nebo uklizeč, má své ID a pracovní rozvrh ve formatu dne (např. 20.10.2024). Je následovan od osoby.</para>
+                    <para></para>
+                    <para>U **Osoby** musíme znát osobní číslo, jmeno, prijmeni, datum narozeni, bankovní účet. Osoba je propojena s členem, trenérem a zaměstnancem.</para>
+                    <para></para>
+                    <para>Každá **skupinová lekce** má ID lekce, název, cenu, datum konání a kapacitu. Každé lekci je přidělen konkrétní trenér. Má jednoho trenéra, jeden prostor, několik rezervací, vybavení a hodnocení.</para>
+                    <para></para>
+                    <para>**Osobní tréninky** mezi trenéry a členy. Zahrnuje ID tréninku, datum. Osobní trénink je propojen s jedním členem a trenérem a může mít několik hodnocení.</para>
+                    <para></para>
+                    <para>**Rezervace** umožňuje členům předem si zajistit místo na lekci. Každá rezervace obsahuje ID rezervace, datum a stav (potvrzená nebo zrušená). Toto zajišťuje efektivní řízení kapacity lekcí a rozvrhu trenérů. Rezervace se vztahuje k jednemu členu a jedné skupinové lekci.</para>
+                    <para></para>
+                    <para>**Platby** slouží k evidenci úhrad členů za různé služby - členství, lekce či osobní tréninky. Každá platba má ID platby, datum, částku. Je propojena s jedním členem.</para>
+                    <para></para>
+                    <para>Centrum obsahuje několik místností pro různé lekce, přičemž každá místnost má svůj název, ID a kapacitu. **Prostory** jsou klíčové při plánování lekcí, aby se předešlo překročení kapacity. Je propojena se skupinovou lekci.</para>
+                    <para></para>
+                    <para>V systému je evidováno i **vybavení** používané při jednotlivých lekcích (např. činky, podložky), které slouží pro efektivní řízení inventáře a potřeby na konkrétní lekce. Se vztahuje ke skupinové lekci.</para>
+                    <para></para>
+                    <para>**Hodnocení** ID hodnocení, obsahuje hodnocení, komentář (není povinný) a datum hodnocení. Umožňuje vidět zajmy a názory na lekce a trenéři. Hodnocení je propojeno s jednou lekci nebo tréninkem.</para>
+        </description>
+        <data_model>
+            <title>Conceptual schema</title>
+            <dm_picture>
+                <mediaobject>
+                    <imageobject>
+                        <imagedata fileref="conceptual_schema.png"/>
+                    </imageobject>
+                </mediaobject>
+            </dm_picture>
+            <dm_discussion>
+                        <para>Smyčka **Osoba-Člen-Rezervace-Skupinová_lekce-Hodnocení-Osobní_trénink-Trenér-Osoba**: Mohlo by dojít k situaci, kdy jedno hodnocení je propojeno současně se skupinovou lekcí i osobním tréninkem, ale v jednom hodnocení není možný zároveň hodnotit osobní trénink a skupinovou lekci. Zavedli jsme pro to IO1.</para>
+                        <para></para>
+                        <para>Smyčka **Osoba-Člen-Rezervace-Skupinová_lekce-Trenér-Osoba**: tato smyčka výpadá tak, že člen fitness centru může být trenerem na skupinové lekci, na kterou rezervoval místo. Obě entity trenér a člen jsou osoby a běžně se může stát, že trenér je zároveň členem fitness centru a to není problém. Zavedli jsme pro to IO2.</para>
+                        <para></para>
+                        <para>Smyčka **Trenér-Osobní_trénink-Hodnocení-Skupinová_lekce-Trenér**: Tato smyčka není problém, protože trenér nemůže vytvářet hodnocení.</para>
+                        <para></para>
+                        <para>Schéma obsahuje další smyčky, ale jsou vyřešeny vysvětlením těchto tří smyček.</para>
+                        <para></para>
+            </dm_discussion>
+        </data_model>
+        <relational_model>
+            <title>Relační schema</title>
+            <rm_picture>
+                <mediaobject>
+                    <imageobject>
+                        <imagedata fileref="relational_schema.png"/>
+                    </imageobject>
+                </mediaobject>
+            </rm_picture>
+        </relational_model>
+        <queries>
+            <title>Dotazy</title>
+            <dotazy>
+                    <dotaz dotaz_id="D1">
+                        <popis_dotazu>
+                                <para>Členové, kteří se zaměřují na silový trénink.</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D2">
+                        <popis_dotazu>
+                                <para>Skupinové lekce s hodnocením víc než 4.</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D3">
+                        <popis_dotazu>
+                                <para>Platby člena za poslední rok.</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D4">
+                        <popis_dotazu>
+                                <para>Kteří členové si rezervovali místo na všechny dostupné skupinové lekce?</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D5">
+                        <popis_dotazu>
+                                <para>Kteří členové mají vztah pouze k osobním tréninkům a neúčastní se ve skupinových lekcí?</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D6">
+                        <popis_dotazu>
+                                <para>Kolik rezervací na skupinové lekce má konkrétní člen?</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D7">
+                        <popis_dotazu>
+                                <para>Kolik volných míst zbývá ve skupinové lekci?</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D8">
+                        <popis_dotazu>
+                                <para>Kteří trenéři mají plánovaný osobní trénink ve dne 10.12.2024?</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D9">
+                        <popis_dotazu>
+                                <para>Jaké skupinové lekce využívají činky?</para>
+                        </popis_dotazu>
+                    </dotaz>
+                    <dotaz dotaz_id="D10">
+                        <popis_dotazu>
+                                <para>Členové s ročním členstvím, kteří měli osobní trénink.</para>
+                        </popis_dotazu>
+                    </dotaz>
+            </dotazy>
+            <pokryti_dotazu>
+                        <radek>
+                            <kategorie>CN</kategorie>
+                            <odkazy>
+                                    <link url="#D5">D5</link>
+                            </odkazy>
+                            <kategorie_popis>C (NATURAL) - Vyber ty, kteří mají vztah POUZE k ...</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>D1N</kategorie>
+                            <odkazy>
+                                    <link url="#D4">D4</link>
+                            </odkazy>
+                            <kategorie_popis>D1 (NATURAL) - Vyber ty, kteří/které jsou ve vztahu se všemi - dotaz s univerzální kvantifikací</kategorie_popis>
+                        </radek>
+            </pokryti_dotazu>
+        </queries>
+        <scripts>
+            <title>Scripts</title>
+            <para>
+                <link url="./create.sql">create.sql</link>
+            </para>
+            <para>
+                <link url="./insert.sql">insert.sql</link>
+            </para>
+        </scripts>
+        <conclussions>
+            <title>Závěr</title>
+        </conclussions>
+        <references>
+            <title>Zdroje</title>
+        </references>
+    </content>
+</sproject>
