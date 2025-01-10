@@ -79,67 +79,702 @@
                         <popis_dotazu>
                                 <para>Členové, kteří se zaměřují na silový trénink.</para>
                         </popis_dotazu>
+                            <relacni_algebra>{clen(preference=&apos;Silový trénink&apos;) * osoba}[jmeno, prijmeni, preference]</relacni_algebra>
+                            <sql>SELECT o.jmeno, o.prijmeni, c.preference
+FROM osoba o
+JOIN clen c ON o.osobni_cislo = c.osobni_cislo
+WHERE c.preference = &apos;Silový trénink&apos;;</sql>
                     </dotaz>
                     <dotaz dotaz_id="D2">
                         <popis_dotazu>
                                 <para>Skupinové lekce s hodnocením víc než 4.</para>
                         </popis_dotazu>
+                            <relacni_algebra>{skupinova_lekce [skupinova_lekce.lekce_id = hodnoceni.lekce_id] hodnoceni(hodnoceni &gt; 4)}[nazev, hodnoceni]</relacni_algebra>
+                            <sql>SELECT sl.nazev, h.hodnoceni
+FROM skupinova_lekce sl
+JOIN hodnoceni h ON sl.lekce_id = h.lekce_id
+WHERE h.hodnoceni &gt; 4;</sql>
                     </dotaz>
                     <dotaz dotaz_id="D3">
                         <popis_dotazu>
                                 <para>Platby člena za poslední rok.</para>
                         </popis_dotazu>
+                            <sql>SELECT c.clen_id, o.jmeno, o.prijmeni, SUM(p.castka) as celkova_castka
+FROM platba p
+JOIN clen c ON p.clen_id = c.clen_id AND p.osobni_cislo = c.osobni_cislo
+JOIN osoba o ON c.osobni_cislo = o.osobni_cislo
+WHERE p.datum &gt;= CURRENT_DATE - INTERVAL &apos;1 year&apos;
+GROUP BY c.clen_id, o.jmeno, o.prijmeni;</sql>
                     </dotaz>
                     <dotaz dotaz_id="D4">
                         <popis_dotazu>
-                                <para>Kteří členové si rezervovali místo na všechny dostupné skupinové lekce?</para>
+                                <para>Členové, kteří se zaregistrovali na všechny skupinové lekce</para>
                         </popis_dotazu>
+                            <sql>SELECT o.jmeno, o.prijmeni
+FROM clen c
+JOIN osoba o ON c.osobni_cislo = o.osobni_cislo
+WHERE NOT EXISTS (
+    SELECT lekce_id 
+    FROM skupinova_lekce sl
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM rezervace r
+        WHERE r.clen_id = c.clen_id 
+        AND r.lekce_id = sl.lekce_id
+    )
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D17">
+                        <popis_dotazu>
+                                <para>Kontrola dotazu D1 (Kteří členové si rezervovali místo na všechny dostupné skupinové lekce?)</para>
+                        </popis_dotazu>
+                            <sql>SELECT o.jmeno, o.prijmeni
+FROM clen c
+JOIN osoba o ON c.osobni_cislo = o.osobni_cislo
+WHERE NOT EXISTS (
+    SELECT lekce_id 
+    FROM skupinova_lekce sl
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM rezervace r
+        WHERE r.clen_id = c.clen_id 
+        AND r.lekce_id = sl.lekce_id
+    )
+)
+
+except
+
+SELECT o.jmeno, o.prijmeni
+FROM clen c
+JOIN osoba o ON c.osobni_cislo = o.osobni_cislo
+WHERE NOT EXISTS (
+    SELECT lekce_id 
+    FROM skupinova_lekce sl
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM rezervace r
+        WHERE r.clen_id = 1
+        AND r.lekce_id = sl.lekce_id
+    )
+)</sql>
                     </dotaz>
                     <dotaz dotaz_id="D5">
                         <popis_dotazu>
                                 <para>Kteří členové mají vztah pouze k osobním tréninkům a neúčastní se ve skupinových lekcí?</para>
                         </popis_dotazu>
+                            <relacni_algebra>{{{osoba [osoba.osobni_cislo = clen.osobni_cislo] clen}
+!&lt;osoba.osobni_cislo = rezervace.osobni_cislo]
+rezervace}
+*
+osobni_trenink}[jmeno, prijmeni]
+
+</relacni_algebra>
+                            <sql>SELECT DISTINCT o.jmeno, o.prijmeni
+FROM clen c
+JOIN osoba o ON c.osobni_cislo = o.osobni_cislo
+JOIN osobni_trenink ot ON c.clen_id = ot.clen_id
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM rezervace r 
+    WHERE r.clen_id = c.clen_id
+);</sql>
                     </dotaz>
                     <dotaz dotaz_id="D6">
                         <popis_dotazu>
                                 <para>Kolik rezervací na skupinové lekce má konkrétní člen?</para>
                         </popis_dotazu>
+                            <sql>SELECT o.jmeno, o.prijmeni, COUNT(r.rezervace_id) as pocet_rezervaci
+FROM clen c
+JOIN osoba o ON c.osobni_cislo = o.osobni_cislo
+LEFT JOIN rezervace r ON c.clen_id = r.clen_id
+GROUP BY o.jmeno, o.prijmeni;</sql>
                     </dotaz>
                     <dotaz dotaz_id="D7">
                         <popis_dotazu>
                                 <para>Kolik volných míst zbývá ve skupinové lekci?</para>
                         </popis_dotazu>
+                            <sql>SELECT sl.lekce_id, sl.nazev,
+       sl.kapacita - COUNT(r.rezervace_id) as zbyvajici_mista
+FROM skupinova_lekce sl
+LEFT JOIN rezervace r ON sl.lekce_id = r.lekce_id
+WHERE r.stav = &apos;Potvrzeno&apos; OR r.stav IS NULL
+GROUP BY sl.lekce_id, sl.nazev, sl.kapacita;</sql>
                     </dotaz>
                     <dotaz dotaz_id="D8">
                         <popis_dotazu>
-                                <para>Kteří trenéři mají plánovaný osobní trénink ve dne 10.12.2024?</para>
+                                <para>Kteří trenéři mají plánovaný osobní trénink ve dne 06.01.2025 v 14:00?</para>
                         </popis_dotazu>
+                            <relacni_algebra>{osoba [osoba.osobni_cislo = osobni_trenink.trener_osobni_cislo] osobni_trenink(datum = &apos;2025-01-06 14:00:00&apos;)}[jmeno, prijmeni]</relacni_algebra>
+                            <sql>SELECT o.jmeno, o.prijmeni 
+FROM trener t 
+JOIN osoba o ON t.osobni_cislo = o.osobni_cislo 
+JOIN osobni_trenink ot ON t.trener_id = ot.trener_id AND t.osobni_cislo = ot.trener_osobni_cislo
+WHERE ot.datum = &apos;2025-01-06 14:00:00&apos;;</sql>
                     </dotaz>
                     <dotaz dotaz_id="D9">
                         <popis_dotazu>
                                 <para>Jaké skupinové lekce využívají činky?</para>
                         </popis_dotazu>
+                            <relacni_algebra>{vybaveni(nazev = &apos;Činky&apos;)[lekce_id, nazev-&gt;vybaveni] * skupinova_lekce}[nazev, vybaveni]</relacni_algebra>
+                            <sql>SELECT sl.nazev, v.nazev as vybaveni
+FROM skupinova_lekce sl
+JOIN vybaveni v ON sl.lekce_id = v.lekce_id
+WHERE v.nazev LIKE &apos;%Činky%&apos;;</sql>
                     </dotaz>
                     <dotaz dotaz_id="D10">
                         <popis_dotazu>
                                 <para>Členové s ročním členstvím, kteří měli osobní trénink.</para>
                         </popis_dotazu>
+                            <relacni_algebra>{{clen(typ_clenstvi = &apos;Roční&apos;) [clen.osobni_cislo = osoba.osobni_cislo] osoba} [clen.clen_id = osobni_trenink.clen_id] osobni_trenink}[jmeno, prijmeni]</relacni_algebra>
+                            <sql>SELECT DISTINCT o.jmeno, o.prijmeni
+FROM clen c
+JOIN osoba o ON c.osobni_cislo = o.osobni_cislo
+JOIN osobni_trenink ot ON c.clen_id = ot.clen_id
+WHERE c.typ_clenstvi = &apos;Roční&apos;;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D13">
+                        <popis_dotazu>
+                                <para>Seznam všech pracovníků (trenéři a zaměstnanci)</para>
+                        </popis_dotazu>
+                            <sql>SELECT o.jmeno, o.prijmeni, &apos;Trenér&apos; as pozice
+FROM osoba o
+JOIN trener t ON o.osobni_cislo = t.osobni_cislo
+UNION
+SELECT o.jmeno, o.prijmeni, &apos;Zaměstnanec&apos; as pozice
+FROM osoba o
+JOIN zamestnanec z ON o.osobni_cislo = z.osobni_cislo;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D14">
+                        <popis_dotazu>
+                                <para>Členové bez rezervací</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{{clen [clen.osobni_cislo = osoba.osobni_cislo] osoba}
+!&lt;*
+rezervace}[jmeno, prijmeni]</relacni_algebra>
+                            <sql>SELECT o.jmeno, o.prijmeni
+FROM osoba o
+JOIN clen c ON o.osobni_cislo = c.osobni_cislo
+EXCEPT
+SELECT o.jmeno, o.prijmeni
+FROM osoba o
+JOIN clen c ON o.osobni_cislo = c.osobni_cislo
+JOIN rezervace r ON c.clen_id = r.clen_id AND c.osobni_cislo = r.osobni_cislo;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D15">
+                        <popis_dotazu>
+                                <para>Trenéři, kteří vedou jak skupinové lekce, tak osobní tréninky</para>
+                        </popis_dotazu>
+                            <sql>SELECT o.jmeno, o.prijmeni
+FROM osoba o
+JOIN trener t ON o.osobni_cislo = t.osobni_cislo
+JOIN skupinova_lekce sl ON t.trener_id = sl.trener_id
+INTERSECT
+SELECT o.jmeno, o.prijmeni
+FROM osoba o
+JOIN trener t ON o.osobni_cislo = t.osobni_cislo
+JOIN osobni_trenink ot ON t.trener_id = ot.trener_id;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D16">
+                        <popis_dotazu>
+                                <para>Trenéry, kteří nemají žádné hodnocení</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{{trener [trener.osobni_cislo = osoba.osobni_cislo] osoba}
+!&lt;trener.osobni_cislo = hodnoceni.trener_osobni_cislo]
+hodnoceni}[jmeno, prijmeni]
+</relacni_algebra>
+                            <sql>SELECT DISTINCT o.jmeno, o.prijmeni
+FROM osoba o
+JOIN trener t ON o.osobni_cislo = t.osobni_cislo
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM hodnoceni h 
+    WHERE h.trener_id = t.trener_id 
+    AND h.trener_osobni_cislo = t.osobni_cislo
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D18">
+                        <popis_dotazu>
+                                <para>Seznam lekcí a jejich prostor using USING</para>
+                        </popis_dotazu>
+                            <sql>SELECT sl.nazev AS lekce, p.nazev AS prostor, p.kapacita
+FROM skupinova_lekce sl
+JOIN prostor p USING (lekce_id);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D19">
+                        <popis_dotazu>
+                                <para>Všechny možné kombinace trenérů a prostorů</para>
+                        </popis_dotazu>
+                            <sql>SELECT o.jmeno || &apos; &apos; || o.prijmeni AS trener, p.nazev AS prostor
+FROM trener t
+CROSS JOIN prostor p
+JOIN osoba o ON t.osobni_cislo = o.osobni_cislo;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D20">
+                        <popis_dotazu>
+                                <para>Kompletní přehled všech osob a jejich rolí</para>
+                        </popis_dotazu>
+                            <sql>SELECT o.jmeno, o.prijmeni,
+    CASE 
+        WHEN c.clen_id IS NOT NULL THEN &apos;Člen&apos;
+        WHEN t.trener_id IS NOT NULL THEN &apos;Trenér&apos;
+        WHEN z.zam_id IS NOT NULL THEN &apos;Zaměstnanec&apos;
+        ELSE &apos;Bez role&apos;
+    END AS role
+FROM osoba o
+FULL OUTER JOIN clen c ON o.osobni_cislo = c.osobni_cislo
+FULL OUTER JOIN trener t ON o.osobni_cislo = t.osobni_cislo
+FULL OUTER JOIN zamestnanec z ON o.osobni_cislo = z.osobni_cislo;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D22">
+                        <popis_dotazu>
+                                <para>Statistiky vytížení trenérů</para>
+                        </popis_dotazu>
+                            <sql>SELECT trener_info.jmeno, trener_info.prijmeni, 
+       COUNT(ot.trenink_id) as pocet_treninku
+FROM (
+    SELECT o.jmeno, o.prijmeni, t.trener_id, t.osobni_cislo
+    FROM osoba o
+    JOIN trener t ON o.osobni_cislo = t.osobni_cislo
+) trener_info
+LEFT JOIN osobni_trenink ot 
+    ON trener_info.trener_id = ot.trener_id 
+    AND trener_info.osobni_cislo = ot.trener_osobni_cislo
+GROUP BY trener_info.jmeno, trener_info.prijmeni;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D23">
+                        <popis_dotazu>
+                                <para>Seznam členů s jejich průměrným hodnocením trenérů</para>
+                        </popis_dotazu>
+                            <sql>SELECT o.jmeno, o.prijmeni,
+    (SELECT AVG(h.hodnoceni)
+     FROM hodnoceni h
+     WHERE h.clen_id = c.clen_id 
+     AND h.osobni_cislo = c.osobni_cislo) as prumerne_hodnoceni
+FROM osoba o
+JOIN clen c ON o.osobni_cislo = c.osobni_cislo;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D24">
+                        <popis_dotazu>
+                                <para>počet rezervací na lekci</para>
+                        </popis_dotazu>
+                            <sql>SELECT sl.nazev, COUNT(r.rezervace_id) as pocet_rezervaci
+FROM skupinova_lekce sl
+JOIN rezervace r ON sl.lekce_id = r.lekce_id
+GROUP BY sl.nazev;
+
+SELECT nazev, 
+    (SELECT COUNT(*) 
+     FROM rezervace r 
+     WHERE r.lekce_id = sl.lekce_id) as pocet_rezervaci
+FROM skupinova_lekce sl;
+
+SELECT sl.nazev, COUNT(r.rezervace_id) as pocet_rezervaci
+FROM skupinova_lekce sl
+LEFT JOIN rezervace r ON sl.lekce_id = r.lekce_id
+GROUP BY sl.nazev;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D25">
+                        <popis_dotazu>
+                                <para>Komplexní dotaz se všemi klauzulemi</para>
+                        </popis_dotazu>
+                            <sql>SELECT sl.nazev, 
+       COUNT(h.hodnoceni) AS pocet_hodnoceni, 
+       AVG(h.hodnoceni) AS prumerne_hodnoceni
+FROM skupinova_lekce sl
+LEFT JOIN hodnoceni h ON sl.lekce_id = h.lekce_id
+WHERE sl.kapacita &gt; 10
+GROUP BY sl.nazev
+HAVING COUNT(h.hodnoceni) &gt; 0
+ORDER BY prumerne_hodnoceni DESC;
+</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D26">
+                        <popis_dotazu>
+                                <para>Vytvoření pohledu pro aktivní členy</para>
+                        </popis_dotazu>
+                            <sql>CREATE OR REPLACE VIEW clen_s_rezervacemi AS
+SELECT o.jmeno, o.prijmeni, c.typ_clenstvi, COUNT(r.rezervace_id) AS pocet_rezervaci
+FROM osoba o
+JOIN clen c ON o.osobni_cislo = c.osobni_cislo
+LEFT JOIN rezervace r ON c.clen_id = r.clen_id
+GROUP BY o.jmeno, o.prijmeni, c.typ_clenstvi;
+
+</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D27">
+                        <popis_dotazu>
+                                <para>Dotaz nad pohledem</para>
+                        </popis_dotazu>
+                            <sql>SELECT *
+FROM clen_s_rezervacemi
+WHERE typ_clenstvi = &apos;Roční&apos; AND pocet_rezervaci &gt; 0
+ORDER BY pocet_rezervaci DESC;
+</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D28">
+                        <popis_dotazu>
+                                <para>INSERT s vnořeným dotazem</para>
+                        </popis_dotazu>
+                            <sql>INSERT INTO rezervace (rezervace_id, clen_id, osobni_cislo, lekce_id, datum, stav)
+SELECT nextval(&apos;rezervace_rezervace_id_seq&apos;), c.clen_id, c.osobni_cislo, sl.lekce_id, sl.datum, &apos;Potvrzeno&apos;
+FROM clen c
+JOIN skupinova_lekce sl ON c.preference = sl.nazev
+WHERE c.typ_clenstvi = &apos;Premium&apos;;
+</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D29">
+                        <popis_dotazu>
+                                <para>UPDATE s vnořeným dotazem</para>
+                        </popis_dotazu>
+                            <sql>UPDATE skupinova_lekce
+SET kapacita = kapacita + 5
+WHERE lekce_id IN (
+    SELECT lekce_id
+    FROM rezervace
+    GROUP BY lekce_id
+    HAVING COUNT(*) &gt;= (
+        SELECT AVG(kapacita) FROM skupinova_lekce
+    )
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D30">
+                        <popis_dotazu>
+                                <para>DELETE s vnořeným dotazem</para>
+                        </popis_dotazu>
+                            <sql>DELETE FROM rezervace
+WHERE stav = &apos;Čeká na potvrzení&apos;
+AND lekce_id IN (
+    SELECT lekce_id
+    FROM skupinova_lekce
+    WHERE datum &lt; CURRENT_TIMESTAMP
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D31">
+                        <popis_dotazu>
+                                <para>Jména a příjmení všech členů, kteří mají typ členství Týdenní</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{clen(typ_clenstvi=&apos;Týdenní&apos;) [clen.osobni_cislo=osoba.osobni_cislo] osoba}[jmeno, prijmeni]</relacni_algebra>
+                            <sql>SELECT o.jmeno, o.prijmeni
+FROM clen c
+JOIN osoba o ON c.osobni_cislo = o.osobni_cislo
+WHERE c.typ_clenstvi = &apos;Týdenní&apos;;
+</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D32">
+                        <popis_dotazu>
+                                <para>Skupinové lekce, které mají kapacitu větší nebo rovno 15
+</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{skupinova_lekce(kapacita &gt;= 15)}[nazev]</relacni_algebra>
+                            <sql>SELECT nazev
+FROM skupinova_lekce
+WHERE kapacita &gt;= 15;
+</sql>
                     </dotaz>
             </dotazy>
             <pokryti_dotazu>
                         <radek>
-                            <kategorie>CN</kategorie>
+                            <kategorie>A</kategorie>
+                            <odkazy>
+                                    <link url="#D1">D1</link>
+                                    <link url="#D2">D2</link>
+                                    <link url="#D3">D3</link>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D9">D9</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D13">D13</link>
+                                    <link url="#D14">D14</link>
+                                    <link url="#D15">D15</link>
+                                    <link url="#D18">D18</link>
+                                    <link url="#D19">D19</link>
+                                    <link url="#D20">D20</link>
+                                    <link url="#D22">D22</link>
+                                    <link url="#D23">D23</link>
+                                    <link url="#D24">D24</link>
+                                    <link url="#D25">D25</link>
+                                    <link url="#D26">D26</link>
+                                    <link url="#D28">D28</link>
+                                    <link url="#D31">D31</link>
+                            </odkazy>
+                            <kategorie_popis>A - Pozitivní dotaz nad spojením alespoň dvou tabulek</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>AR</kategorie>
+                            <odkazy>
+                                    <link url="#D1">D1</link>
+                                    <link url="#D2">D2</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D9">D9</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D14">D14</link>
+                                    <link url="#D31">D31</link>
+                            </odkazy>
+                            <kategorie_popis>A (RA) - Pozitivní dotaz nad spojením alespoň dvou tabulek</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>B</kategorie>
+                            <odkazy>
+                                    <link url="#D16">D16</link>
+                            </odkazy>
+                            <kategorie_popis>B - Negativní dotaz nad spojením alespoň dvou tabulek</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>C</kategorie>
                             <odkazy>
                                     <link url="#D5">D5</link>
                             </odkazy>
-                            <kategorie_popis>C (NATURAL) - Vyber ty, kteří mají vztah POUZE k ...</kategorie_popis>
+                            <kategorie_popis>C - Vyber ty, kteří mají vztah POUZE k ...</kategorie_popis>
                         </radek>
                         <radek>
-                            <kategorie>D1N</kategorie>
+                            <kategorie>D1</kategorie>
                             <odkazy>
                                     <link url="#D4">D4</link>
                             </odkazy>
-                            <kategorie_popis>D1 (NATURAL) - Vyber ty, kteří/které jsou ve vztahu se všemi - dotaz s univerzální kvantifikací</kategorie_popis>
+                            <kategorie_popis>D1 - Vyber ty, kteří/které jsou ve vztahu se všemi - dotaz s univerzální kvantifikací</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>D2</kategorie>
+                            <odkazy>
+                                    <link url="#D17">D17</link>
+                            </odkazy>
+                            <kategorie_popis>D2 - Kontrola výsledku dotazu z kategorie D1</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F1</kategorie>
+                            <odkazy>
+                                    <link url="#D1">D1</link>
+                                    <link url="#D2">D2</link>
+                                    <link url="#D3">D3</link>
+                                    <link url="#D4">D4</link>
+                                    <link url="#D17">D17</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D9">D9</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D13">D13</link>
+                                    <link url="#D14">D14</link>
+                                    <link url="#D15">D15</link>
+                                    <link url="#D16">D16</link>
+                                    <link url="#D19">D19</link>
+                                    <link url="#D22">D22</link>
+                                    <link url="#D23">D23</link>
+                                    <link url="#D24">D24</link>
+                                    <link url="#D26">D26</link>
+                                    <link url="#D28">D28</link>
+                                    <link url="#D31">D31</link>
+                            </odkazy>
+                            <kategorie_popis>F1 - JOIN ON</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F1R</kategorie>
+                            <odkazy>
+                                    <link url="#D1">D1</link>
+                                    <link url="#D2">D2</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D9">D9</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D14">D14</link>
+                                    <link url="#D16">D16</link>
+                                    <link url="#D31">D31</link>
+                            </odkazy>
+                            <kategorie_popis>F1 (RA) - JOIN ON</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F2</kategorie>
+                            <odkazy>
+                                    <link url="#D18">D18</link>
+                            </odkazy>
+                            <kategorie_popis>F2 - NATURAL JOIN|JOIN USING</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F3</kategorie>
+                            <odkazy>
+                                    <link url="#D19">D19</link>
+                            </odkazy>
+                            <kategorie_popis>F3 - CROSS JOIN</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F4</kategorie>
+                            <odkazy>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D22">D22</link>
+                                    <link url="#D24">D24</link>
+                                    <link url="#D25">D25</link>
+                                    <link url="#D26">D26</link>
+                            </odkazy>
+                            <kategorie_popis>F4 - LEFT|RIGHT OUTER JOIN</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F5</kategorie>
+                            <odkazy>
+                                    <link url="#D20">D20</link>
+                            </odkazy>
+                            <kategorie_popis>F5 - FULL (OUTER) JOIN</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G1</kategorie>
+                            <odkazy>
+                                    <link url="#D4">D4</link>
+                                    <link url="#D17">D17</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D16">D16</link>
+                                    <link url="#D29">D29</link>
+                                    <link url="#D30">D30</link>
+                            </odkazy>
+                            <kategorie_popis>G1 - Vnořený dotaz v klauzuli WHERE</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G1R</kategorie>
+                            <odkazy>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D16">D16</link>
+                            </odkazy>
+                            <kategorie_popis>G1 (RA) - Vnořený dotaz v klauzuli WHERE</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G2</kategorie>
+                            <odkazy>
+                                    <link url="#D22">D22</link>
+                            </odkazy>
+                            <kategorie_popis>G2 - Vnořený dotaz v klauzuli FROM</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G3</kategorie>
+                            <odkazy>
+                                    <link url="#D23">D23</link>
+                                    <link url="#D24">D24</link>
+                            </odkazy>
+                            <kategorie_popis>G3 - Vnořený dotaz v klauzuli SELECT</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G4</kategorie>
+                            <odkazy>
+                                    <link url="#D4">D4</link>
+                                    <link url="#D17">D17</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D16">D16</link>
+                            </odkazy>
+                            <kategorie_popis>G4 - Vztažený vnořený dotaz (EXISTS, NOT EXISTS)</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G4R</kategorie>
+                            <odkazy>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D16">D16</link>
+                            </odkazy>
+                            <kategorie_popis>G4 (RA) - Vztažený vnořený dotaz (EXISTS, NOT EXISTS)</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>H1</kategorie>
+                            <odkazy>
+                                    <link url="#D13">D13</link>
+                            </odkazy>
+                            <kategorie_popis>H1 - Množinové sjednocení - UNION</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>H2</kategorie>
+                            <odkazy>
+                                    <link url="#D17">D17</link>
+                                    <link url="#D14">D14</link>
+                            </odkazy>
+                            <kategorie_popis>H2 - Množinový rozdíl - MINUS nebo EXCEPT</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>H2R</kategorie>
+                            <odkazy>
+                                    <link url="#D14">D14</link>
+                            </odkazy>
+                            <kategorie_popis>H2 (RA) - Množinový rozdíl - MINUS nebo EXCEPT</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>H3</kategorie>
+                            <odkazy>
+                                    <link url="#D15">D15</link>
+                            </odkazy>
+                            <kategorie_popis>H3 - Množinový průnik - INTERSECT</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>I1</kategorie>
+                            <odkazy>
+                                    <link url="#D3">D3</link>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D22">D22</link>
+                                    <link url="#D23">D23</link>
+                                    <link url="#D24">D24</link>
+                                    <link url="#D25">D25</link>
+                                    <link url="#D26">D26</link>
+                                    <link url="#D29">D29</link>
+                            </odkazy>
+                            <kategorie_popis>I1 - Agregační funkce (count|sum|min|max|avg)</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>I2</kategorie>
+                            <odkazy>
+                                    <link url="#D3">D3</link>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D22">D22</link>
+                                    <link url="#D24">D24</link>
+                                    <link url="#D25">D25</link>
+                                    <link url="#D26">D26</link>
+                                    <link url="#D29">D29</link>
+                            </odkazy>
+                            <kategorie_popis>I2 - Agregační funkce nad seskupenými řádky - GROUP BY (HAVING)</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>J</kategorie>
+                            <odkazy>
+                                    <link url="#D24">D24</link>
+                            </odkazy>
+                            <kategorie_popis>J - Stejný dotaz ve třech různých formulacích SQL</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>K</kategorie>
+                            <odkazy>
+                                    <link url="#D25">D25</link>
+                            </odkazy>
+                            <kategorie_popis>K - Všechny klauzule v 1 dotazu - SELECT FROM WHERE GROUP BY HAVING ORDER BY</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>L</kategorie>
+                            <odkazy>
+                                    <link url="#D26">D26</link>
+                            </odkazy>
+                            <kategorie_popis>L - VIEW</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>M</kategorie>
+                            <odkazy>
+                                    <link url="#D27">D27</link>
+                            </odkazy>
+                            <kategorie_popis>M - Dotaz nad pohledem</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>N</kategorie>
+                            <odkazy>
+                                    <link url="#D28">D28</link>
+                            </odkazy>
+                            <kategorie_popis>N - INSERT, který vloží do některé tabulky množinu řádků, které jsou vybrány dotazem z vybraných tabulek (příkaz INSERT, ve kterém je klauzule VALUES nahrazena vnořeným poddotazem.</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>O</kategorie>
+                            <odkazy>
+                                    <link url="#D29">D29</link>
+                            </odkazy>
+                            <kategorie_popis>O - UPDATE s vnořeným SELECT příkazem</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>P</kategorie>
+                            <odkazy>
+                                    <link url="#D30">D30</link>
+                            </odkazy>
+                            <kategorie_popis>P - DELETE s vnořeným SELECT příkazem</kategorie_popis>
                         </radek>
             </pokryti_dotazu>
         </queries>
@@ -154,9 +789,18 @@
         </scripts>
         <conclussions>
             <title>Závěr</title>
+                    <para>Projekt Fitness Centrum byl dobrou myšlenkou a jsem rád, že jsem ho ukončil. :D</para>
+                    <para></para>
+                    <para>Docel jsem si zkomplikoval život tím, že jsem se rozhodl zavest třídu osoba, která slouží jako abstraktní entita pro člena, trenera a zaměstnance. Kvůli té třídě jsem vždycky musel použivat JOIN&apos;y v SQL a RA, což není moc hezký. Určitě jsem měl komplikace s dotazy, ale vyřešil jsem je. Jinak ostatní části projektu jsem zvladl bez problemů.</para>
+                    <para></para>
+                    <para>Kontrola splnění podmínek odevzdání prošla úspěšně. </para>
+                    <para></para>
+                    <para>Přeji hodně štěstí.</para>
         </conclussions>
         <references>
             <title>Zdroje</title>
+                    <para>1. Přednášky z moodlu</para>
+                    <para>2. Ukazkový projekt Zoo</para>
         </references>
     </content>
 </sproject>
